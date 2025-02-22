@@ -3,17 +3,23 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# Настройка стилей
+sns.set(style="whitegrid")
+
+# Функция загрузки данных
 def load_data(uploaded_file):
     if uploaded_file is not None:
         return pd.read_csv(uploaded_file)
     return None
 
-st.title("Анализ видеокарт NVIDIA RTX")
+# Заголовок приложения
+st.title("📊 Анализ видеокарт NVIDIA RTX")
 
-# Загрузка файлов
+# Загрузка файлов CSV
 uploaded_file_20 = st.file_uploader("Загрузите CSV для RTX 20 Series", type=["csv"])
 uploaded_file_30 = st.file_uploader("Загрузите CSV для RTX 30 Series", type=["csv"])
 
+# Загрузка данных
 data_20 = load_data(uploaded_file_20)
 data_30 = load_data(uploaded_file_30)
 
