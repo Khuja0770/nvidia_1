@@ -3,17 +3,18 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Настройка стилей
-sns.set(style="whitegrid")
-
 # Функция загрузки данных
 def load_data(uploaded_file):
     if uploaded_file is not None:
-        return pd.read_csv(uploaded_file)
+        df = pd.read_csv(uploaded_file)
+        # Удаление колонки Price, если она существует
+        if 'Price' in df.columns:
+            df.drop(columns=['Price'], inplace=True)
+        st.write("### Названия столбцов в загруженном файле:", df.columns.tolist())
+        return df
     return None
 
-# Заголовок приложения
-st.title("📊 Анализ видеокарт NVIDIA RTX")
+st.title("Анализ видеокарт NVIDIA RTX")
 
 # Загрузка файлов
 uploaded_file_20 = st.file_uploader("Загрузите CSV для RTX 20 Series", type=["csv"])
@@ -38,37 +39,62 @@ if data_20 is not None and data_30 is not None:
     st.write("### RTX 30 Series")
     st.write(data_30.describe())
 
-    # Объединение данных для сравнения
-    data_20['Series'] = 'RTX 20'
-    data_30['Series'] = 'RTX 30'
-    combined_data = pd.concat([data_20, data_30], ignore_index=True)
+    # Определение названия колонки для памяти
+    memory_col = 'Memory Size'
+    if memory_col not in data_20.columns or memory_col not in data_30.columns:
+        memory_col = [col for col in data_20.columns if 'memory' in col.lower() or 'vram' in col.lower()]
+        memory_col = memory_col[0] if memory_col else None
 
-    # Функция для отображения сравнительных графиков
-    st.subheader("📈 Сравнение RTX 20 и RTX 30")
+    if memory_col:
+        # Сравнительные графики
+        st.subheader("Сравнение CUDA Cores, GPU Models и Memory Size")
 
-    # Сравнение CUDA Cores
-    if 'GPU Model' in combined_data.columns and 'CUDA Cores' in combined_data.columns:
-        st.write("### 🔹 Сравнение CUDA Cores")
-        plt.figure(figsize=(14, 8))
-        sns.barplot(x='GPU Model', y='CUDA Cores', hue='Series', data=combined_data, palette="muted")
-        plt.xticks(rotation=45)
-        plt.xlabel("GPU Model")
-        plt.ylabel("CUDA Cores")
-        plt.title("Сравнение количества ядер CUDA между RTX 20 и RTX 30")
-        st.pyplot(plt)
-        plt.close()
+        comparison_df = pd.concat([
+            data_20.assign(Series='RTX 20'),
+            data_30.assign(Series='RTX 30')
+        ])
 
-    # Сравнение Memory Size
-    if 'GPU Model' in combined_data.columns and 'Memory Size (GB)' in combined_data.columns:
-        st.write("### 🔹 Сравнение Memory Size")
-        plt.figure(figsize=(14, 8))
-        sns.barplot(x='GPU Model', y='Memory Size (GB)', hue='Series', data=combined_data, palette="coolwarm")
-        plt.xticks(rotation=45)
-        plt.xlabel("GPU Model")
-        plt.ylabel("Memory Size (GB)")
-        plt.title("Сравнение объёма памяти между RTX 20 и RTX 30")
-        st.pyplot(plt)
-        plt.close()
+        # График CUDA Cores
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.boxplot(x='Series', y='CUDA Cores', data=comparison_df, ax=ax)
+        ax.set_title('Сравнение CUDA Cores между RTX 20 и RTX 30')
+        st.pyplot(fig)
+
+        # График Memory Size
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.barplot(x='Series', y=memory_col, data=comparison_df, ci=None, ax=ax)
+        ax.set_title(f'Сравнение {memory_col} между RTX 20 и RTX 30')
+        st.pyplot(fig)
+
+        # Дополнительные графики
+        st.subheader("Дополнительные визуализации")
+
+        # Boxplot
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.boxplot(x='Series', y=memory_col, data=comparison_df, ax=ax)
+        ax.set_title(f'Boxplot {memory_col}')
+        st.pyplot(fig)
+
+        # Scatter plot
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.scatterplot(x='CUDA Cores', y=memory_col, hue='Series', data=comparison_df, ax=ax)
+        ax.set_title(f'Scatter plot CUDA Cores vs {memory_col}')
+        st.pyplot(fig)
+    else:
+        st.write("Не удалось найти колонку с размером памяти. Проверьте названия столбцов.")
+
+    # Pie chart
+    fig, ax = plt.subplots(figsize=(8, 8))
+    series_counts = comparison_df['Series'].value_counts()
+    ax.pie(series_counts, labels=series_counts.index, autopct='%1.1f%%', startangle=140)
+    ax.set_title('Распределение GPU серий')
+    st.pyplot(fig)
+
+    # Bar chart
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.countplot(x='Series', data=comparison_df, ax=ax)
+    ax.set_title('Количество моделей в каждой серии')
+    st.pyplot(fig)
 
 else:
     st.write("Пожалуйста, загрузите оба CSV-файла.")
