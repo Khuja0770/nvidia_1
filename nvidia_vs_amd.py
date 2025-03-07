@@ -1,9 +1,12 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.express as px
 
-st.markdown("<h1 style='color: whitesmoke;'>Обзор данных видеокарт NVIDIA и AMD</h1>", unsafe_allow_html=True)
+st.set_page_config(layout="wide")  # Устанавливаем широкий режим отображения
 
+st.markdown("<h1 style='color: white;'>Обзор данных видеокарт NVIDIA и AMD</h1>", unsafe_allow_html=True)
+
+# Функция для установки фонового изображения и стилизации элементов
 def set_background_image(image_url: str):
     st.markdown(
         f"""
@@ -17,12 +20,14 @@ def set_background_image(image_url: str):
         unsafe_allow_html=True
     )
 
-set_background_image("https://hyperpc.ru/images/support/articles/nvidia-vs-amd/nvidia-vs-amd-banner_webp.jpg")
+# Установить фон (замени URL на нужный)
+set_background_image("https://static.tildacdn.com/tild3962-6630-4333-b837-643036336263/AMD-vs-Nvidia.jpeg")
 
+# Загрузка файлов (множественный выбор)
 uploaded_files = st.file_uploader("Загрузите CSV-файлы с видеокартами", type=["csv"], accept_multiple_files=True)
 
 if uploaded_files:
-    dfs = []
+    dfs = []  # Список для хранения загруженных DataFrame
     for file in uploaded_files:
         st.markdown(f"<p style='color: white;'>Файл {file.name} успешно загружен!</p>", unsafe_allow_html=True)
         try:
@@ -31,14 +36,21 @@ if uploaded_files:
             df = pd.read_csv(file, encoding='latin-1')
         dfs.append(df)
 
-    combined_df = pd.concat(dfs, ignore_index=True).dropna(axis=1, how='all')
+    # Объединение всех загруженных файлов в один DataFrame
+    combined_df = pd.concat(dfs, ignore_index=True)
+    combined_df = combined_df.dropna(axis=1, how='all')  # Удаление пустых колонок
 
+    # Поле поиска
     if 'GPU Model' in combined_df.columns:
         search_query = st.text_input("Введите название видеокарты:")
+
         if search_query:
             result = combined_df[combined_df["GPU Model"].astype(str).str.contains(search_query, case=False, na=False)]
-            st.write("### Найденные результаты:")
-            st.write(result) if not result.empty else st.write("Видеокарта не найдена.")
+            if not result.empty:
+                st.write("### Найденные результаты:")
+                st.dataframe(result)  # Используем dataframe для лучшего отображения
+            else:
+                st.write("Видеокарта не найдена.")
 
     col1, col2 = st.columns(2)
 
@@ -59,68 +71,60 @@ if uploaded_files:
         
         if selected_gpus:
             comparison_df = combined_df[combined_df["GPU Model"].isin(selected_gpus)]
-            st.write(comparison_df)
+            st.write("### Сравнение видеокарт")
+            st.dataframe(comparison_df)  # Используем dataframe для лучшего отображения
+            
             st.write("### Анализ выбранных видеокарт")
-            st.write("#### Первые 5 строк", comparison_df.head())
+            st.write("#### Первые 5 строк")
+            st.dataframe(comparison_df.head())
             st.write("#### Размер данных", comparison_df.shape)
             
-            if "Price (then)" in comparison_df.columns:
-                fig, ax = plt.subplots()
-                comparison_df.boxplot(column="Price (then)", ax=ax)
-                st.pyplot(fig)
-            
+            # Scatter plot
             if "CUDA Cores" in comparison_df.columns and "Boost Clock (MHz)" in comparison_df.columns:
-                fig, ax = plt.subplots()
-                ax.scatter(comparison_df["CUDA Cores"], comparison_df["Boost Clock (MHz)"], color='blue')
-                ax.set_xlabel("CUDA Cores")
-                ax.set_ylabel("Boost Clock (MHz)")
-                st.pyplot(fig)
+                fig = px.scatter(comparison_df, x="CUDA Cores", y="Boost Clock (MHz)", color="GPU Model")
+                st.plotly_chart(fig)
             
+            # Histogram
             if "Memory Size" in comparison_df.columns:
-                fig, ax = plt.subplots()
-                comparison_df["Memory Size"].hist(bins=10, ax=ax, color='green')
-                ax.set_xlabel("Memory Size (GB)")
-                ax.set_ylabel("Count")
-                st.pyplot(fig)
+                fig = px.histogram(comparison_df, x="Memory Size", nbins=10, title="Распределение памяти")
+                st.plotly_chart(fig)
 
     if st.session_state.show_analysis:
         st.write("### Анализ данных")
-        st.write("#### Первые 5 строк", combined_df.head())
+        st.write("#### Первые 5 строк")
+        st.dataframe(combined_df.head())
         st.write("#### Размер данных", combined_df.shape)
         
+        # Количество значений
         column_to_count = st.selectbox("Выберите колонку для value_counts()", combined_df.columns)
         st.write(combined_df[column_to_count].value_counts())
         
+        # Сортировка данных
         sort_column = st.selectbox("Выберите колонку для сортировки", combined_df.columns)
-        st.write(combined_df.sort_values(by=sort_column))
+        st.dataframe(combined_df.sort_values(by=sort_column))
         
+        # Группировка данных
         group_column = st.selectbox("Выберите колонку для группировки", combined_df.columns)
         grouped_df = combined_df.groupby(group_column).mean(numeric_only=True)
-        st.write(grouped_df)
+        st.dataframe(grouped_df)
         
+        # Визуализация данных
         st.write("### Визуализация данных")
         
-        if "Price (then)" in combined_df.columns:
-            fig, ax = plt.subplots()
-            combined_df.boxplot(column="Price (then)", ax=ax)
-            st.pyplot(fig)
-        
+        # Scatter plot
         if "CUDA Cores" in combined_df.columns and "Boost Clock (MHz)" in combined_df.columns:
-            fig, ax = plt.subplots()
-            ax.scatter(combined_df["CUDA Cores"], combined_df["Boost Clock (MHz)"], color='blue')
-            ax.set_xlabel("CUDA Cores")
-            ax.set_ylabel("Boost Clock (MHz)")
-            st.pyplot(fig)
+            fig = px.scatter(combined_df, x="CUDA Cores", y="Boost Clock (MHz)", color="GPU Model")
+            st.plotly_chart(fig)
         
+        # Histogram
         if "Memory Size" in combined_df.columns:
-            fig, ax = plt.subplots()
-            combined_df["Memory Size"].hist(bins=10, ax=ax, color='green')
-            ax.set_xlabel("Memory Size (GB)")
-            ax.set_ylabel("Count")
-            st.pyplot(fig)
+            fig = px.histogram(combined_df, x="Memory Size", nbins=10, title="Распределение памяти")
+            st.plotly_chart(fig)
         
+        # Pie chart
         pie_column = st.selectbox("Выберите колонку для pie chart", combined_df.columns)
         if combined_df[pie_column].nunique() > 0:
-            fig, ax = plt.subplots()
-            combined_df[pie_column].value_counts().plot.pie(autopct='%1.1f%%', ax=ax)
-            st.pyplot(fig)
+            pie_data = combined_df[pie_column].value_counts().reset_index()
+            pie_data.columns = [pie_column, "Count"]
+            fig = px.pie(pie_data, names=pie_column, values="Count", title="Распределение значений")
+            st.plotly_chart(fig)
